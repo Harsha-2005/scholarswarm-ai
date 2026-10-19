@@ -1,4 +1,7 @@
 # backend/verify_setup.py
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning)
+
 import requests
 from app.config import settings
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -41,19 +44,33 @@ def test_all_keys():
             print(f"   [FAIL] Tavily returned status {r.status_code}: {r.text}")
 
     # 3. Verify Gemini API Key
-    print("\n3. Testing Google Gemini API Key...")
+    print(f"\n3. Testing Google Gemini API Key (Model: {settings.GEMINI_MODEL})...")
     if not settings.GEMINI_API_KEY:
         print("   [FAIL] GEMINI_API_KEY is empty in .env")
     else:
         try:
             llm = ChatGoogleGenerativeAI(
-                model="gemini-2.5-flash",
-                google_api_key=settings.GEMINI_API_KEY
+                model=settings.GEMINI_MODEL,
+                google_api_key=settings.GEMINI_API_KEY,
+                temperature=0.0
             )
             res = llm.invoke("Reply with the exact word: READY")
-            print(f"   [PASS] Gemini API valid! Model replied: {res.content.strip()}")
+            print(f"   [PASS] Gemini API valid! Model ({settings.GEMINI_MODEL}) replied: {res.content.strip()}")
         except Exception as e:
             print(f"   [FAIL] Gemini error: {e}")
+            # Self-diagnostic: list available models on this API key
+            print("   [INFO] Querying Google API for available Flash models on your key...")
+            r = requests.get(
+                f"https://generativelanguage.googleapis.com/v1beta/models?key={settings.GEMINI_API_KEY}",
+                timeout=10
+            )
+            if r.status_code == 200:
+                models = [
+                    m["name"].replace("models/", "")
+                    for m in r.json().get("models", [])
+                    if "flash" in m["name"].lower() and "generateContent" in m.get("supportedGenerationMethods", [])
+                ]
+                print(f"   [INFO] Available Flash models for your key: {models}")
 
 if __name__ == "__main__":
     test_all_keys()
