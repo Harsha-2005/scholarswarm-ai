@@ -1,2 +1,6 @@
-venv/**
-/backend/.env
+venv/
+__pycache__/
+*.pyc
+.env
+backend/.env
+backend/sample_data/uploads/
